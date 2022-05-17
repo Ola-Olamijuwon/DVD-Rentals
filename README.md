@@ -1,7 +1,7 @@
 # DVD-Rentals-
 (SQL, EXCEL VBA and Power BI)
 
-##Case Study
+## Case Study
 As a newly hired Data Analyst, you’re now an integral part of the team and you should consider yourself a contributor to the brand’s success. On this note, the Chief Analytics Officer came up with a task for you to query the company’s database, generate insights, visualize and share with the team.
 
 ## Business Task
