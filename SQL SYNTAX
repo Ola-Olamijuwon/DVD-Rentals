@@ -1,0 +1,186 @@
+/* 
+	DVD_RENTAL PROJRCT
+*/
+
+-- Q 1 Top 10 customers
+SELECT customer_id, UPPER(first_name||' '||last_name), email, SUM (amount)::MONEY AS total_amount 
+FROM customer
+JOIN payment 
+USING (customer_id)
+GROUP BY 1,2
+ORDER BY total_amount DESC
+LIMIT 10;
+
+-- Q 2 Buttom 10 customers
+SELECT customer_id, CONCAT(first_name,'_', last_name), email, SUM(amount)::MONEY AS total_amount
+FROM customer
+JOIN payment 
+USING (customer_id)
+GROUP BY 1,2
+ORDER BY total_amount 
+LIMIT 10;
+
+-- Q 3 Most Profitable Movie Genre(Ratings)
+SELECT rating, SUM(rental_duration) * SUM(rental_rate)::MONEY AS profit
+FROM film
+GROUP BY 1
+ORDER BY profit DESC;
+
+-- Q 3 Most Profitable Movie Genre (category) 
+SELECT name AS category, COUNT (rental_id) AS rental_count, SUM (amount)::MONEY AS total_amount
+FROM film
+JOIN film_category USING (film_id)
+JOIN category using (category_id)
+JOIN inventory using (film_id)
+JOIN store using (store_id)
+JOIN customer using (store_id)
+JOIN payment using (customer_id)
+GROUP BY 1
+ORDER BY total_amount DESC;
+
+-- Q 4 How many rented movies were returned LATE, EARLY & ON TIME 
+SELECT CASE 
+	WHEN rental_duration > date_part ('day', return_date - rental_date) THEN 'Late'
+	WHEN rental_duration < date_part ('day', return_date - rental_date) THEN 'Early'
+	ELSE 'On_Time'
+	END AS retrun,
+	COUNT(rental_id) return_rate
+FROM film
+JOIN inventory USING (film_id)
+JOIN rental USING (inventory_id)
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- Q 5 Customer Base per Country
+SELECT DISTINCT country, COUNT(customer_id) AS customer_base
+FROM address
+JOIN city USING (city_id)
+JOIN country USING (country_id)
+JOIN customer USING (address_id)
+GROUP BY 1
+ORDER BY customer_base DESC;
+
+-- Q 6 Most Profitable Country
+SELECT country, SUM(amount)::MONEY AS profit
+FROM address
+JOIN city USING (city_id)
+JOIN country USING (country_id)
+JOIN customer USING (address_id)
+JOIN payment USING (customer_id)
+GROUP BY 1
+ORDER BY profit DESC;
+
+-- Q 7 Average Rental Rate Per movie genre (rating)
+SELECT rating, ROUND(AVG(rental_rate), 2) AS avg_rental_rate
+FROM film
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- 7 Average Rental Rate per movie genre (category)
+SELECT name AS category, ROUND(AVG(rental_rate), 1) AS avg_rental_rate
+FROM film
+JOIN film_category USING (film_id)
+JOIN category USING (category_id)
+JOIN inventory USING (film_id)
+JOIN store USING (store_id)
+JOIN customer USING (store_id)
+JOIN payment USING (customer_id)
+GROUP BY 1
+ORDER BY avg_rental_rate DESC;
+
+-- Q 8 Staff Return
+SELECT staff_id, CONCAT(first_name,'_', last_name), TO_CHAR (SUM(amount),'L99,999') staff_return, COUNT(amount) purchase_count, username
+FROM staff
+JOIN payment
+USING (staff_id)
+GROUP BY 1,2;
+
+-- Q 9 Amount and  Customer Concentration 
+SELECT amount AS amount, COUNT (customer_id) AS customer_count, TO_CHAR(SUM(amount), 'L99,999.99') AS total_amount
+FROM customer
+JOIN payment USING (customer_id)
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- TABLES 
+SELECT * FROM actor;
+		SELECT * FROM address;
+SELECT * FROM category;
+		SELECT * FROM city;
+SELECT * FROM country;
+		SELECT * FROM customer;
+SELECT * FROM film;
+		SELECT * FROM film_actor;
+SELECT * FROM film_category;
+		SELECT * FROM inventory;
+SELECT * FROM language;
+		SELECT * FROM payment;
+SELECT * FROM rental;
+		SELECT * FROM staff;
+SELECT * FROM store;
+
+-- EXTRA PRACTICE
+/* Q 10 Payment Rate By Months
+ There are only four months for payment (2, 3, 4, 5) */
+SELECT 
+CASE 
+		WHEN DATE_PART('month', payment_date) = 2 THEN 'February'
+		WHEN DATE_PART('month', payment_date) = 3 THEN 'March'
+		WHEN DATE_PART('month', payment_date) = 4 THEN 'April'
+		ELSE 'May'
+		END AS Month,
+		COUNT(payment_date) payment_rate
+FROM payment
+GROUP BY 1
+ORDER BY 2 DESC;
+
+
+-- SUBQUERY
+SELECT average_amount
+FROM(
+	SELECT MAX(total_amount_spent) Highest_amount,
+		   MIN (total_amount_spent) lowest_amount,
+		   AVG (total_amount_spent) average_amount
+	FROM
+		(SELECT first_name, SUM(amount) AS total_amount_spent
+		FROM customer
+		JOIN payment USING (customer_id)
+		WHERE DATE_PART('month', payment_date) = 2
+		GROUP BY 1
+		ORDER BY 2 DESC
+		) sub1) sub_2;
+		
+-- CTE
+WITH t1 AS
+(SELECT first_name, SUM(amount) AS total_amount_spent
+		FROM customer
+		JOIN payment USING (customer_id)
+		WHERE DATE_PART('month', payment_date) = 2
+		GROUP BY 1
+		ORDER BY 2 DESC),
+		t2 AS (
+	SELECT MAX(total_amount_spent) Highest_amount,
+		   MIN (total_amount_spent) lowest_amount,
+		   AVG (total_amount_spent) average_amount
+			FROM t1)
+		SELECT average_amount
+		FROM t2;
+-- Grouping Movie Categories into Family-Friendly, Reality, Mature Audience and Others
+SELECT 
+	CASE 
+		WHEN name IN ('Family', 'Comedy', 'Drama', 'Animation', 'Children', 'Music') THEN 'Family-Friendly'
+		WHEN name IN ('Games', 'Documentary', 'Sports', 'Travel') THEN 'Reality'
+		WHEN name IN ('Horror', 'Action', 'Classics', 'Sci-Fi') THEN 'Mature_Audience'
+		WHEN name IN ('New', 'Foreign') THEN 'Others'
+		END parent_category,
+		SUM(rent_count) rent_count
+		FROM (
+			SELECT name, COUNt(rental_id)rent_count
+			FROM category
+			JOIN film_category USING (category_id)
+			JOIN film USING (film_id)	
+			JOIN inventory USING (film_id)
+			JOIN rental USING (inventory_id)
+			GROUP BY 1
+			ORDER BY 2 DESC) sub1
+			GROUP BY 1;
